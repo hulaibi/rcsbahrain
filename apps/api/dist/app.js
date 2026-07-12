@@ -6,16 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.app = void 0;
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const health_routes_1 = __importDefault(require("./routes/health.routes"));
 exports.app = (0, express_1.default)();
 exports.app.use((0, cors_1.default)({
     origin: process.env.CLIENT_URL || "http://localhost:3000",
     credentials: true,
 }));
 exports.app.use(express_1.default.json());
-exports.app.get("/api/health", (req, res) => {
-    res.json({
-        success: true,
-        message: "Bahrain Red Crescent API is running",
-    });
-});
+exports.app.use("/api/health", health_routes_1.default);
 //# sourceMappingURL=app.js.map

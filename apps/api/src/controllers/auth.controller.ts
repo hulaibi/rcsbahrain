@@ -132,7 +132,6 @@ export const getProfile = async (
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
-      include: { role: true },
       select: {
         id: true,
         email: true,

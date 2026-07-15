@@ -1,7 +1,7 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import type { Locale } from '@/lib/locales';
 import { getDictionary } from '@/dictionaries';
-import { ImagePlaceholder } from '@/components/shared/ImagePlaceholder';
 
 interface HeroSectionProps {
   locale: Locale;
@@ -11,8 +11,16 @@ export async function HeroSection({ locale }: HeroSectionProps) {
   const dict = getDictionary(locale);
 
   return (
-    <section className="bg-gradient-to-br from-red-50 to-white py-16 md:py-24 lg:py-32">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section
+      className="relative overflow-hidden py-16 md:py-24 lg:py-32"
+      style={{
+        backgroundImage: "url('/backgr.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="absolute inset-0 bg-white/40" aria-hidden="true" />
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left side - Text */}
           <div className="space-y-6 order-2 lg:order-1">
@@ -40,11 +48,16 @@ export async function HeroSection({ locale }: HeroSectionProps) {
 
           {/* Right side - Image */}
           <div className="order-1 lg:order-2">
-            <ImagePlaceholder
-              width="100%"
-              height="500px"
-              label="Hero Image - Humanitarian Scene"
-            />
+            <div className="relative overflow-hidden rounded-3xl border border-red-100 bg-white shadow-xl">
+              <Image
+                src="/bhrc.png"
+                alt="Bahrain Red Crescent humanitarian support scene"
+                width={1024}
+                height={1024}
+                className="h-auto w-full object-cover"
+                priority
+              />
+            </div>
           </div>
         </div>
       </div>

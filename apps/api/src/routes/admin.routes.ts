@@ -45,6 +45,11 @@ router.patch(
     try {
       const { userId } = req.params;
 
+      if (typeof userId !== "string") {
+        res.status(400).json({ error: "Invalid user id" });
+        return;
+      }
+
       const user = await prisma.user.update({
         where: { id: userId },
         data: { isActive: false },
@@ -75,6 +80,11 @@ router.patch(
     try {
       const { userId } = req.params;
       const { roleName } = req.body;
+
+      if (typeof userId !== "string") {
+        res.status(400).json({ error: "Invalid user id" });
+        return;
+      }
 
       if (!roleName) {
         res.status(400).json({ error: "Role name is required" });

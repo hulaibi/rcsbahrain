@@ -26,7 +26,7 @@ The system will include the following main models:
 
 * User
 * Role
-* Permission
+* Permission | Neon
 * Page
 * News
 * Event

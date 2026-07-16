@@ -26,7 +26,7 @@ export async function Header({ locale }: HeaderProps) {
       children: [
         {
           label: isArabic ? 'تاريخ الجمعية' : 'Society History',
-          href: `/${locale}/about#history`,
+          href: `/${locale}/about#history-section`,
         },
         {
           label: isArabic ? 'مبادئ الجمعية' : 'Society Principles',

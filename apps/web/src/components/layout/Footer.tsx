@@ -28,8 +28,9 @@ export async function Footer({ locale }: FooterProps) {
   ];
 
   const legalLinks = [
-    { label: dict.footer.privacy, href: '#' },
-    { label: dict.footer.terms, href: '#' },
+    { label: dict.footer.privacy, href: `/${locale}/privacy-policy` },
+    { label: dict.footer.terms, href: `/${locale}/terms-and-conditions` },
+    { label: dict.footer.accessibility, href: `/${locale}/accessibility` },
   ];
 
   return (

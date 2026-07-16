@@ -3,6 +3,8 @@ import { getDictionary } from '@/dictionaries';
 import { SectionHeading } from '@/components/shared/SectionHeading';
 import { NewsCard } from '@/components/shared/NewsCard';
 import { ButtonLink } from '@/components/shared/ButtonLink';
+import { getNewsList } from '@/lib/api/news';
+import { formatLocalizedDate } from '@/lib/format';
 
 interface LatestNewsProps {
   locale: Locale;
@@ -11,7 +13,17 @@ interface LatestNewsProps {
 export async function LatestNews({ locale }: LatestNewsProps) {
   const dict = getDictionary(locale);
 
-  const mockNews = [
+  interface LatestNewsItem {
+    id: string;
+    title: string;
+    excerpt: string;
+    category: string;
+    date: string;
+    href: string;
+    imageUrl: string | null;
+  }
+
+  const fallbackNews = [
     {
       title: locale === 'ar' ? 'تدشين برنامج جديد للتوعية الصحية' : 'Launch of New Health Awareness Program',
       excerpt: locale === 'ar' 
@@ -38,6 +50,38 @@ export async function LatestNews({ locale }: LatestNewsProps) {
     },
   ];
 
+  let newsItems: LatestNewsItem[] = fallbackNews.map((item, index) => ({
+    id: `fallback-${index}`,
+    title: item.title,
+    excerpt: item.excerpt,
+    category: item.category,
+    date: item.date,
+    href: `/${locale}/news`,
+    imageUrl: null,
+  }));
+
+  try {
+    const response = await getNewsList({
+      locale,
+      page: 1,
+      limit: 3,
+    });
+
+    if (response.items.length > 0) {
+      newsItems = response.items.map((item) => ({
+        id: item.id,
+        title: item.title,
+        excerpt: item.excerpt ?? '',
+        category: item.category ?? dict.news.category,
+        date: formatLocalizedDate(item.publishedAt, locale),
+        href: `/${locale}/news/${item.slug}`,
+        imageUrl: item.featuredImageUrl,
+      }));
+    }
+  } catch {
+    // Keep static fallback cards when the API is unavailable.
+  }
+
   return (
     <section className="py-16 md:py-20 lg:py-24 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -47,14 +91,16 @@ export async function LatestNews({ locale }: LatestNewsProps) {
         />
 
         <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockNews.map((news, index) => (
+          {newsItems.map((news) => (
             <NewsCard
-              key={index}
+              key={news.id}
               title={news.title}
               excerpt={news.excerpt}
               category={news.category}
               date={news.date}
-              href={`/${locale}/news`}
+              href={news.href}
+              imageUrl={news.imageUrl}
+              actionLabel={dict.buttons.readMore}
             />
           ))}
         </div>

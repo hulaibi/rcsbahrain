@@ -4,149 +4,242 @@ import { PageHero } from '@/components/shared/PageHero';
 import { SectionHeading } from '@/components/shared/SectionHeading';
 import { EventCard } from '@/components/shared/EventCard';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { Pagination } from '@/components/shared/Pagination';
+import { ErrorState } from '@/components/shared/ErrorState';
+import { getEventsList } from '@/lib/api/events';
+import { ApiClientError } from '@/lib/api/client';
+import { formatLocalizedDate } from '@/lib/format';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 
 interface EventsPageProps {
   params: Promise<{ locale: Locale }>;
+  searchParams: Promise<{
+    search?: string;
+    upcomingPage?: string;
+    pastPage?: string;
+  }>;
 }
 
-export async function generateMetadata({ params }: EventsPageProps) {
+export async function generateMetadata({ params }: EventsPageProps): Promise<Metadata> {
   const { locale } = await params;
   const dict = getDictionary(locale);
+
   return {
     title: dict.nav.events,
-    description: locale === 'ar'
-      ? 'الأحداث والفعاليات القادمة'
-      : 'Upcoming events and activities',
+    description: dict.events.description,
+    alternates: {
+      canonical: `/${locale}/events`,
+      languages: {
+        ar: '/ar/events',
+        en: '/en/events',
+      },
+    },
+    openGraph: {
+      title: dict.nav.events,
+      description: dict.events.description,
+      type: 'website',
+      locale: locale === 'ar' ? 'ar_BH' : 'en_BH',
+    },
   };
 }
 
-export default async function EventsPage({ params }: EventsPageProps) {
+function toPositiveInt(value: string | undefined, fallback: number): number {
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return fallback;
+  }
+
+  return parsed;
+}
+
+function buildEventsHref(
+  locale: Locale,
+  search: string,
+  upcomingPage: number,
+  pastPage: number
+): string {
+  const query = new URLSearchParams();
+
+  if (search.trim().length > 0) {
+    query.set('search', search.trim());
+  }
+
+  if (upcomingPage > 1) {
+    query.set('upcomingPage', String(upcomingPage));
+  }
+
+  if (pastPage > 1) {
+    query.set('pastPage', String(pastPage));
+  }
+
+  const queryString = query.toString();
+  return queryString.length > 0 ? `/${locale}/events?${queryString}` : `/${locale}/events`;
+}
+
+export default async function EventsPage({ params, searchParams }: EventsPageProps) {
   const { locale } = await params;
+  const query = await searchParams;
   const dict = getDictionary(locale);
-  const isArabic = locale === 'ar';
+  const search = query.search ?? '';
+  const upcomingPage = toPositiveInt(query.upcomingPage, 1);
+  const pastPage = toPositiveInt(query.pastPage, 1);
 
-  const upcomingEvents = [
-    {
-      title: isArabic ? 'دورة الإسعافات الأولية' : 'First Aid Training Course',
-      description: isArabic
-        ? 'دورة تدريبية شاملة في الإسعافات الأولية الأساسية'
-        : 'Comprehensive training course on basic first aid',
-      date: isArabic ? '15 يناير' : 'Jan 15',
-      location: isArabic ? 'مقر الجمعية - المنامة' : 'BRCS Headquarters - Manama',
-    },
-    {
-      title: isArabic ? 'حملة جمع التبرعات' : 'Fundraising Campaign',
-      description: isArabic
-        ? 'حملة خيرية لجمع التبرعات'
-        : 'Charity campaign to support humanitarian programs',
-      date: isArabic ? '20 يناير' : 'Jan 20',
-      location: isArabic ? 'مختلف المواقع' : 'Multiple Locations',
-    },
-    {
-      title: isArabic ? 'يوم التطوع الوطني' : 'National Volunteer Day',
-      description: isArabic
-        ? 'احتفالنا باليوم العالمي للتطوع'
-        : 'Celebrate International Volunteer Day',
-      date: isArabic ? '25 يناير' : 'Jan 25',
-      location: isArabic ? 'الحديقة المركزية - المنامة' : 'Central Park - Manama',
-    },
-  ];
+  let requestFailed = false;
+  let upcoming: Awaited<ReturnType<typeof getEventsList>> | null = null;
+  let past: Awaited<ReturnType<typeof getEventsList>> | null = null;
 
-  const pastEvents = [
-    {
-      title: isArabic ? 'حملة التبرع بالدم' : 'Blood Donation Campaign',
-      description: isArabic
-        ? 'حملة تبرع بالدم الشهرية'
-        : 'Monthly blood donation campaign',
-      date: isArabic ? '10 يناير' : 'Jan 10',
-      location: isArabic ? 'مقر الجمعية' : 'Headquarters',
-    },
-    {
-      title: isArabic ? 'ندوة صحية' : 'Health Seminar',
-      description: isArabic
-        ? 'ندوة عن الصحة الوقائية'
-        : 'Seminar on preventive health',
-      date: isArabic ? '5 يناير' : 'Jan 5',
-      location: isArabic ? 'مركز المجتمع' : 'Community Center',
-    },
-    {
-      title: isArabic ? 'تدريب المتطوعين' : 'Volunteer Training',
-      description: isArabic
-        ? 'برنامج تدريب للمتطوعين الجدد'
-        : 'Training program for new volunteers',
-      date: isArabic ? '25 ديسمبر' : 'Dec 25',
-      location: isArabic ? 'مقر الجمعية' : 'Headquarters',
-    },
-  ];
+  try {
+    [upcoming, past] = await Promise.all([
+      getEventsList({
+        locale,
+        search,
+        timeframe: 'upcoming',
+        page: upcomingPage,
+        limit: 6,
+      }),
+      getEventsList({
+        locale,
+        search,
+        timeframe: 'past',
+        page: pastPage,
+        limit: 6,
+      }),
+    ]);
+  } catch (error) {
+    if (error instanceof ApiClientError) {
+      requestFailed = true;
+    } else {
+      throw error;
+    }
+  }
+
+  if (requestFailed || !upcoming || !past) {
+    return (
+      <section className="py-16 md:py-20 lg:py-24">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <ErrorState
+            locale={locale}
+            retryHref={buildEventsHref(locale, search, upcomingPage, pastPage)}
+          />
+        </div>
+      </section>
+    );
+  }
 
   return (
     <>
-      <PageHero
-        title={dict.nav.events}
-        description={isArabic
-          ? 'الأحداث والفعاليات'
-          : 'Events and activities'}
-      />
+      <PageHero title={dict.nav.events} description={dict.events.description} />
 
       <section className="py-16 md:py-20 lg:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Upcoming Events */}
-          <div className="mb-16">
+          <form className="mb-10 rounded-xl border border-gray-200 bg-white p-4 md:p-6">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <input
+                type="search"
+                name="search"
+                defaultValue={search}
+                placeholder={dict.news.searchPlaceholder}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-red-700 focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800"
+              >
+                {dict.buttons.search}
+              </button>
+              <Link
+                href={`/${locale}/events`}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+              >
+                {dict.events.all}
+              </Link>
+            </div>
+          </form>
+
+          <div className="mb-16" id="upcoming-events">
             <SectionHeading
-              title={isArabic ? 'الفعاليات القادمة' : 'Upcoming Events'}
-              description={isArabic
-                ? 'لا تفوتك الأحداث القادمة'
-                : "Don't miss our upcoming events"}
+              title={dict.events.upcoming}
+              description={locale === 'ar' ? 'لا تفوتك الأحداث القادمة' : "Don't miss our upcoming events"}
             />
 
-            {upcomingEvents.length > 0 ? (
-              <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {upcomingEvents.map((event, index) => (
-                  <EventCard
-                    key={index}
-                    title={event.title}
-                    description={event.description}
-                    date={event.date}
-                    location={event.location}
-                    href="#"
-                  />
-                ))}
-              </div>
+            {upcoming.items.length > 0 ? (
+              <>
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {upcoming.items.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      title={event.title}
+                      description={event.content}
+                      date={formatLocalizedDate(event.startDate, locale)}
+                      location={event.location ?? dict.events.location}
+                      href={`/${locale}/events/${event.slug}`}
+                      imageUrl={event.featuredImageUrl}
+                      actionLabel={dict.buttons.readMore}
+                    />
+                  ))}
+                </div>
+                <Pagination
+                  currentPage={upcoming.meta.page}
+                  totalPages={upcoming.meta.totalPages}
+                  labels={{
+                    previous: dict.common.previous,
+                    next: dict.common.next,
+                    page: dict.common.page,
+                  }}
+                  buildHref={(nextPage) =>
+                    buildEventsHref(locale, search, nextPage, past.meta.page)
+                  }
+                />
+              </>
             ) : (
               <EmptyState
-                title={isArabic ? 'لا توجد فعاليات قادمة' : 'No Upcoming Events'}
-                description={isArabic
-                  ? 'سيتم إضافة فعاليات قريباً'
-                  : 'Events will be added soon'}
+                title={dict.events.noUpcomingTitle}
+                description={dict.events.noUpcomingDescription}
               />
             )}
           </div>
 
-          {/* Past Events */}
-          <div>
+          <div id="past-events">
             <SectionHeading
-              title={isArabic ? 'الفعاليات السابقة' : 'Past Events'}
-              description={isArabic
-                ? 'استعرض الفعاليات التي نظمناها'
-                : 'View events we have organized'}
+              title={dict.events.past}
+              description={locale === 'ar' ? 'استعرض الفعاليات التي نظمناها' : 'View events we have organized'}
             />
 
-            {pastEvents.length > 0 ? (
-              <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {pastEvents.map((event, index) => (
-                  <EventCard
-                    key={index}
-                    title={event.title}
-                    description={event.description}
-                    date={event.date}
-                    location={event.location}
-                    href="#"
-                  />
-                ))}
-              </div>
+            {past.items.length > 0 ? (
+              <>
+                <div className="mt-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {past.items.map((event) => (
+                    <EventCard
+                      key={event.id}
+                      title={event.title}
+                      description={event.content}
+                      date={formatLocalizedDate(event.startDate, locale)}
+                      location={event.location ?? dict.events.location}
+                      href={`/${locale}/events/${event.slug}`}
+                      imageUrl={event.featuredImageUrl}
+                      actionLabel={dict.buttons.readMore}
+                    />
+                  ))}
+                </div>
+                <Pagination
+                  currentPage={past.meta.page}
+                  totalPages={past.meta.totalPages}
+                  labels={{
+                    previous: dict.common.previous,
+                    next: dict.common.next,
+                    page: dict.common.page,
+                  }}
+                  buildHref={(nextPage) =>
+                    buildEventsHref(locale, search, upcoming.meta.page, nextPage)
+                  }
+                />
+              </>
             ) : (
               <EmptyState
-                title={isArabic ? 'لا توجد فعاليات سابقة' : 'No Past Events'}
+                title={dict.events.noPastTitle}
+                description={dict.events.noPastDescription}
               />
             )}
           </div>

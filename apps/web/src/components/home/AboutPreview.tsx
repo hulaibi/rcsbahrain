@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import type { Locale } from '@/lib/locales';
 import { getDictionary } from '@/dictionaries';
 import { SectionHeading } from '@/components/shared/SectionHeading';

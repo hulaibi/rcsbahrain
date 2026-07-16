@@ -41,7 +41,7 @@ export async function generateMetadata({
       title: dict.org.name,
       description: dict.org.description,
       type: 'website',
-      locale: isArabic ? 'ar_BH' : 'en_US',
+      locale: isArabic ? 'ar_BH' : 'en_BH',
     },
     twitter: {
       card: 'summary_large_image',

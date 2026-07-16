@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 interface EmptyStateProps {
   title: string;
   description?: string;
@@ -30,12 +32,12 @@ export function EmptyState({ title, description, action }: EmptyStateProps) {
         <p className="text-gray-500 text-center max-w-md mb-6">{description}</p>
       )}
       {action && (
-        <a
+        <Link
           href={action.href}
           className="inline-flex items-center px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors"
         >
           {action.label}
-        </a>
+        </Link>
       )}
     </div>
   );
